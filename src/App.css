@@ -233,3 +233,9 @@ main {
   flex-basis: calc(100% / 7);
   width: calc(100% / 7);
 }
+
+.price-display {
+  color : green;
+  font-weight: 900;
+  font-size: 30px;
+}
