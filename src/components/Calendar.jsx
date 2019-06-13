@@ -2,7 +2,9 @@ import React from "react";
 import dateFns from "date-fns";
 import { Modal, Button, Form } from 'react-bootstrap';
 import axios from 'axios';
-
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 class Calendar extends React.Component {
   state = {
@@ -11,16 +13,24 @@ class Calendar extends React.Component {
     prices : {},
     dialogStatus : false,
     currPrice : 0,
-    deleteDialogStatus : false
+    deleteDialogStatus : false,
+    ids : {},
+    startDate : new Date(),
+    endDate : new Date(),
+    maxProfit : 0,
+    chartData : {}
   };
 
   mapDateToPrice(arr) {
     let map = {};
+    let mapId = {};
     for(let i = 0; i < arr.length; i++){
       let item = arr[i];
       map[item.fields.date] = item.fields.price;
+      mapId[item.fields.date] = item.id;
     }
     this.setState({prices : map});
+    this.setState({ids : mapId});
     //console.log(this.state);
   }
 
@@ -143,10 +153,11 @@ class Calendar extends React.Component {
     // debugger;
     // let price;
     // if(this.state.price)
-    let  price = this.state.prices[day]
+    let  price = this.state.prices[day];
+    console.log(price);
     if(price) {
       return (<div >
-        <span className="price-display">{price}</span>
+        <span className="price-display">Rs. {price}</span>
         <Modal show={this.state.deleteDialogStatus} onHide={this.handleDeleteClose}>
           <Modal.Header closeButton>
             <Modal.Title>Date : {this.state.selectedDate.toDateString()}</Modal.Title>
@@ -260,6 +271,8 @@ class Calendar extends React.Component {
       "year" : (this.state.selectedDate.getFullYear() + '')
     }
 
+    fields['timestamp'] = (new Date(fields.month + " " + fields.date + " " + fields.year).getTime()) + '';
+
     axios.defaults.headers = {
       "Content-Type": 'application/json',
       "Authorization" : 'Bearer ' + 'keyyETxpFauOV7MdI'
@@ -270,23 +283,184 @@ class Calendar extends React.Component {
         console.log(res);
         this.fetchApi();
         this.setState({
-  
           dialogStatus : !this.state.dialogStatus
-        })
+        });
+        this.findMaxProfit();
       })
   }
   
   deletePrice = () => {
-    
+    let date = this.state.selectedDate.getDate();
+    let id = this.state.ids[date];
+    console.log(date);
+    axios.defaults.headers = {
+      "Content-Type": 'application/json',
+      "Authorization" : 'Bearer ' + 'keyyETxpFauOV7MdI'
+      }
+
+    axios.delete("https://api.airtable.com/v0/appGudhHSPRS9Mg91/STOCK_PRICE/" + id)
+      .then(res => {
+        console.log(res);
+        this.fetchApi();
+        this.setState({
+          deleteDialogStatus : !this.state.deleteDialogStatus
+        });
+        this.findMaxProfit();
+      });
+  }
+
+  startDateSelection = (date) => {
+    //debugger;
+    this.setState({
+      startDate : date
+    }, () => {
+      this.findMaxProfit();
+    });
+  }
+
+  endDateSelection = (date) => {
+    this.setState({
+      endDate : date
+    }, () => {
+      this.findMaxProfit();
+    });
+  }
+
+  findMaxProfit = () => {
+    let start = new Date(this.state.startDate.toLocaleDateString()).getTime();
+    let end = new Date(this.state.endDate.toLocaleDateString()).getTime();
+
+    fetch('https://api.airtable.com/v0/appGudhHSPRS9Mg91/STOCK_PRICE?filterByFormula=AND({timestamp}>=' +start + ', {timestamp}<=' + end + ')'+'&api_key=keyyETxpFauOV7MdI')
+    .then((resp) => resp.json())
+    .then(data => {
+      // this.setState({prices : data.records});
+       console.log(data);
+       let arr = data.records;
+       arr.sort((item1, item2) => {
+          return item1.fields.timestamp - item2.fields.timestamp;
+       });
+
+       let chartData = [];
+       let months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+       arr.forEach((item) => {
+          chartData.push({date : item.fields.date + '-' + months[item.fields.month - 1], price : item.fields.price});
+       })
+      //  debugger;
+       console.log(chartData);
+       this.setState({
+         chartData : chartData
+       })
+
+       let minValue = 999999999;
+       let ans=0;
+       for(let i=0; i<arr.length;i++)
+        {
+            let p = parseInt(arr[i].fields.price);
+            if(minValue > p)
+              minValue = p;
+              
+            let temp = p - minValue;
+            if(ans<temp)
+            {
+                ans = temp;
+            }
+        }
+       console.log('Max Profit : ', ans);
+
+       this.setState({
+         maxProfit : ans
+       });
+       console.log(arr);
+    }).catch(err => {
+      
+    });
+  }
+
+  renderDateSelection() {
+    return (
+      <div className="row">
+        <div className="header row flex-middle">
+            <div className="col col-center">
+            <span className="profit">Buy / Sell Stock (One time)</span>
+            <br/>
+            <br/>
+            <br/>
+            </div>
+          </div>
+        <div className="col">
+              <span><b>Start Date :  </b></span>
+              <DatePicker
+              selected={this.state.startDate}
+              onChange={this.startDateSelection}
+            />
+          </div>
+          <div className="col">
+            <span><b>End Date :  </b></span>
+          <DatePicker
+              selected={this.state.endDate}
+              onChange={this.endDateSelection}
+            />
+          </div>
+          <div className="header row flex-middle">
+            <div className="col col-center">
+              <br />
+              <br />
+
+            <span className="profit">Max Profit : {this.state.maxProfit}</span>
+            </div>
+          </div>
+        </div>
+    );
+  }
+
+  renderChart = () => {
+    return (
+     <div>
+       {/* <br/>
+       <br/> */}
+        <LineChart
+      width={500}
+      height={300}
+      data={this.state.chartData}
+      margin={{
+        top: 60, right: 15, left: 15, bottom: 5,
+      }}
+    >
+      <CartesianGrid strokeDasharray="3 6" />
+      <XAxis dataKey="date" />
+      <YAxis />
+      <Tooltip />
+      <Legend />
+      <Line type="monotone" dataKey="price" stroke="#8884d8" activeDot={{ r: 4 }} />
+      {/* <Line type="monotone" dataKey="uv" stroke="#82ca9d" /> */}
+    </LineChart>
+       </div>
+    );
   }
 
   render() {
     return (
-      <div className="calendar">
-        {this.renderHeader()}
-        {this.renderDays()}
-        {this.renderCells()}
+      <div className="row">
+      <div className="col-6" >
+        <div className="calendar">
+          {this.renderHeader()}
+          {this.renderDays()}
+          {this.renderCells()}
+        </div>
       </div>
+      <div className="col-6">
+       
+        <div className="row">
+            {this.renderDateSelection()}
+        </div>
+        <div className="row">
+            <br/>
+            <br/>
+            <br/>
+            {this.renderChart()}
+        </div>
+      </div>
+    </div>
     );
   }
 }
