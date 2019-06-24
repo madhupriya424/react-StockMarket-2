@@ -10,9 +10,9 @@ class App extends React.Component {
       <div className="App">
         <header>
           <div id="logo">
-            <span className="icon">date_range</span>
+            {/* <span className="icon">date_range</span> */}
             <span>
-              react<b>calendar</b>
+              Stock Visulaizer
             </span>
           </div>
         </header>
@@ -25,4 +25,3 @@ class App extends React.Component {
 }
 
 export default App;
-//
