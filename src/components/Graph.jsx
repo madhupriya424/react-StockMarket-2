@@ -10,7 +10,7 @@ export class Graph extends React.Component {
     startDate : new Date(),
     endDate : new Date(),
     maxProfit : 0,
-    chartData : {}
+    chartData : []
   };
 
   startDateSelection = (date) => {
@@ -32,7 +32,8 @@ export class Graph extends React.Component {
   findMaxProfit = () => {
     let start = new Date(this.state.startDate.toLocaleDateString()).getTime();
     let end = new Date(this.state.endDate.toLocaleDateString()).getTime();
-
+     
+    
     Api().get('/STOCK_PRICE?filterByFormula=AND({timestamp}>=' +start + ', {timestamp}<=' + end + ')'+'&api_key=keyyETxpFauOV7MdI')
     .then(res => {
        let arr = res.data.records;
